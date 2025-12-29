@@ -1,6 +1,6 @@
 # TrackNetV5 SDK Documentation
 
-**[中文版 (Chinese Version)](https://www.google.com/search?q=./README_CN.md)**
+**[中文版 (Chinese Version)](README_CN.md)**
 
 This repository is the official Software Development Kit (SDK) for **TrackNetV5**, providing a standardized engineering implementation of the tennis ball tracking algorithm. Developed and maintained by **Shanghai Code Zero Sports Technology Co., Ltd.**
 
