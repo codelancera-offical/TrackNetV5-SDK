@@ -1,0 +1,5 @@
+**/__pycache__/
+/data/*
+/workdirs
+*.pth
+/weights/*.pth
