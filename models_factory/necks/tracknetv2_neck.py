@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from ..builder import NECKS
 
-
 from ..basic import BasicConvBlock as ConvBlock
 
 

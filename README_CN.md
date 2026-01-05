@@ -8,7 +8,7 @@ TrackNetV5 的核心架构与算法逻辑基于公司最新研究成果：
 
 ## 核心规格
 
-* **架构支持**：仅支持 TrackNetV5 架构，**不兼容** V2/V4 旧版架构。
+* **架构支持**：支持 TrackNetV5，V2, V4架构
 * **功能集成**：封装了三帧滑动窗口推理、高斯热力图质心提取、轨迹增强可视化及工业级训练流水线。
 * **保密声明**：模型权重与训练数据集属于公司内部核心资产，暂不公开。
 
@@ -96,15 +96,15 @@ python train.py
 ### 执行命令
 
 ```bash
-python main.py <input_dir> <weights_path> --arch v5 --threshold 0.5 --device cuda:0
+python main.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
 
 ```
 
 ### 输出产物说明
 
-结果将自动整理至 `input_dir/v5/` 目录下：
+结果将自动整理至 `input_dir/{arch}/` 目录下：
 
-* `_summary_report_v5.csv`: 汇总所有视频的检测率与帧数统计。
+* `_summary_report_{arch}.csv`: 汇总所有视频的检测率与帧数统计。
 * `*_data.csv`: 逐帧坐标映射（含检测状态、cx, cy 质心）。
 * `*_trajectory.mp4`: **轨迹增强视频**（含彗星拖尾效果）。
 * `*_comparison.mp4`: 原始轨迹与预测热力图的同步对比视频。
