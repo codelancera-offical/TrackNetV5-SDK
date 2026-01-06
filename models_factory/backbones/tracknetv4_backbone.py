@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from ..builder import BACKBONES
-from ..basic.conv_block_activation_bn import ConvBlock
+from ..basic.conv_block import BasicConvBlock as ConvBlock
 
 import torch
 import torch.nn as nn

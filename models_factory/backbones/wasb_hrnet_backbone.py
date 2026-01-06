@@ -58,7 +58,6 @@ class Bottleneck(nn.Module):
         return self.relu(out)
 
 class HighResolutionModule(nn.Module):
-    """WASB 核心：并行流与特征交换机制 """
     def __init__(self, num_branches, blocks, num_blocks, num_inchannels,
                  num_channels, fuse_method, multi_scale_output=True):
         super(HighResolutionModule, self).__init__()
@@ -137,33 +136,29 @@ class HighResolutionModule(nn.Module):
 
 @BACKBONES.register_module
 class WASBHRNetBackbone(nn.Module):
-    """
-    WASB 骨干网络实现。
-    关键特性：移除 Stem 步长以保持高分辨率 。
-    输入形状: [B, 3*N, H, W] 。
-    """
     blocks_dict = {'BASIC': BasicBlock, 'BOTTLENECK': Bottleneck}
 
-    def __init__(self, cfg):
+    def __init__(self, frames_in, MODEL): 
         super(WASBHRNetBackbone, self).__init__()
-        extra = cfg['MODEL']['EXTRA']
+        extra = MODEL['EXTRA']
         
-        # Modified Stem: 这里的 STRIDES 建议为 [1, 1] 以匹配论文 Fig 3(c) [cite: 108, 109]
+        # [cite_start]Modified Stem: 设置步长以保持分辨率 [cite: 108, 109]
         stem_strides = extra['STEM']['STRIDES']
         stem_inplanes = extra['STEM']['INPLANES']
         
-        self.conv1 = nn.Conv2d(3 * cfg['frames_in'], stem_inplanes, kernel_size=3, stride=stem_strides[0], padding=1, bias=False)
+        # [cite_start]输入为 3 * frames_in 通道 [cite: 110]
+        self.conv1 = nn.Conv2d(3 * frames_in, stem_inplanes, kernel_size=3, stride=stem_strides[0], padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(stem_inplanes, momentum=BN_MOMENTUM)
         self.conv2 = nn.Conv2d(stem_inplanes, stem_inplanes, kernel_size=3, stride=stem_strides[1], padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(stem_inplanes, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
 
-        # Stage 1
+        # Stage 1: [cite_start]单分支 Bottleneck 提取特征 [cite: 106]
         s1_cfg = extra['STAGE1']
         self.layer1 = self._make_layer(self.blocks_dict[s1_cfg['BLOCK']], stem_inplanes, s1_cfg['NUM_CHANNELS'][0], s1_cfg['NUM_BLOCKS'][0])
         pre_channels = [self.blocks_dict[s1_cfg['BLOCK']].expansion * s1_cfg['NUM_CHANNELS'][0]]
 
-        # Stage 2, 3, 4
+        # Stage 2, 3, 4: [cite_start]并行流过渡与生成 [cite: 80, 107]
         self.transition1 = self._make_transition_layer(pre_channels, [c * self.blocks_dict[extra['STAGE2']['BLOCK']].expansion for c in extra['STAGE2']['NUM_CHANNELS']])
         self.stage2, pre_channels = self._make_stage(extra['STAGE2'], [c * self.blocks_dict[extra['STAGE2']['BLOCK']].expansion for c in extra['STAGE2']['NUM_CHANNELS']])
 
@@ -214,11 +209,7 @@ class WASBHRNetBackbone(nn.Module):
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.layer1(x)
-
-        # 这里的转发逻辑通过 transition 适配并行分支
         y_list = self.stage2([self.transition1[i](x) if self.transition1[i] else x for i in range(len(self.transition1))])
         y_list = self.stage3([self.transition2[i](y_list[-1]) if self.transition2[i] else y_list[i] for i in range(len(self.transition2))])
         y_list = self.stage4([self.transition3[i](y_list[-1]) if self.transition3[i] else y_list[i] for i in range(len(self.transition3))])
-
-        # 返回最高分辨率的特征图，直接对接 TrackNetV2Head [cite: 74, 110]
         return y_list[0]

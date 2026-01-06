@@ -10,28 +10,31 @@ model = dict(
             EXTRA=dict(
                 STEM=dict(
                     INPLANES=64,
-                    STRIDES=[2, 1]  # Modified Stem: 保持高分辨率 [cite: 104, 108]
+                    STRIDES=[1, 1]  # Modified Stem: 保持高分辨率 [cite: 104, 108]
                 ),
                 STAGE1=dict(
                     NUM_MODULES=1,
                     NUM_BRANCHES=1,
                     BLOCK='BOTTLENECK', # Stage 1 暴力语义提取 [cite: 106]
                     NUM_BLOCKS=[4],
-                    NUM_CHANNELS=[64]
+                    NUM_CHANNELS=[64],
+                    FUSE_METHOD='SUM'
                 ),
                 STAGE2=dict(
                     NUM_MODULES=1,
                     NUM_BRANCHES=2,
                     BLOCK='BASIC',
                     NUM_BLOCKS=[4, 4],
-                    NUM_CHANNELS=[32, 64]
+                    NUM_CHANNELS=[32, 64],
+                    FUSE_METHOD='SUM'
                 ),
                 STAGE3=dict(
                     NUM_MODULES=4,
                     NUM_BRANCHES=3,
                     BLOCK='BASIC',
                     NUM_BLOCKS=[4, 4, 4],
-                    NUM_CHANNELS=[32, 64, 128]
+                    NUM_CHANNELS=[32, 64, 128],
+                    FUSE_METHOD='SUM'
                 ),
                 STAGE4=dict(
                     NUM_MODULES=3,
@@ -55,7 +58,7 @@ model = dict(
 # ------------------- 2. 数据定义 (沿用 V5) -------------------
 input_size = (288, 512)
 original_size = (1080, 1920)
-data_root = './data/benchmark'
+data_root = './data/loveall_tennis_gauss_heatmap'
 
 pipeline = [
     dict(type='LoadMultiImagesFromPaths', to_rgb=True),
