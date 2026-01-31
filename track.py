@@ -9,6 +9,7 @@ import csv
 from pathlib import Path
 from tqdm import tqdm
 from collections import deque
+import time
 
 # 导入你项目里的构建器和模型！
 from models_factory.builder import build_model
@@ -133,6 +134,12 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path) 
     video_output_dir.mkdir(parents=True, exist_ok=True)
     
     cap = cv2.VideoCapture(str(video_path))
+
+    # --- ✨ 新增：获取视频原始分辨率 ---
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    resolution_str = f"{width}x{height}"
+
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     
@@ -160,7 +167,9 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path) 
     
     # --- 新的循环逻辑 ---
     frame_idx_counter = 0
+    iteration_count = 0
     pbar = tqdm(total=total_frames, desc=f"Processing {video_path.stem}")
+    start_time = time.time() # 记录开始时间
 
     while cap.isOpened():
         # 1. 一次性读取 3 帧
@@ -235,9 +244,16 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path) 
 
         # 5. 更新计数器和进度条 (关键！)
         frame_idx_counter += 3
+        iteration_count += 1
         pbar.update(3)
     
     # --- 循环结束后的清理 ---
+
+    end_time = time.time()
+    total_duration = end_time - start_time
+    # 平均每秒处理多少个 iteration (每 iteration 处理 3 帧)
+    avg_it_per_sec = iteration_count * 3 / total_duration if total_duration > 0 else 0
+    print(f"⏱️  Processed {iteration_count * 3} frames of {resolution_str} in {total_duration:.2f} seconds. Avg: {avg_it_per_sec:.2f} frames/sec.")
     pbar.close() # 关闭进度条
 
     detection_ratio = (detected_frames_count / total_frames) if total_frames > 0 else 0
