@@ -101,7 +101,7 @@ The inference module supports batch video processing and structured data export.
 ### Execution Command
 
 ```bash
-python main.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
+python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
 
 ```
 
