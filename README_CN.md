@@ -22,7 +22,7 @@ TrackNetV5 的核心架构与算法逻辑基于公司最新研究成果：
 
 | 组件 | 推荐版本 |
 | --- | --- |
-| **Python** | 3.8+ |
+| **Python** | 3.10 |
 | **CUDA** | 12.6 |
 | **PyTorch** | 2.9.0+cu126 |
 | **Torchvision** | 0.24.0+cu126 |
@@ -96,7 +96,7 @@ python train.py
 ### 执行命令
 
 ```bash
-python main.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
+python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
 
 ```
 
