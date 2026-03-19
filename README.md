@@ -25,7 +25,7 @@ This project is optimized for specific computing environments. To ensure system 
 
 | Component | Recommended Version |
 | --- | --- |
-| **Python** | 3.8+ |
+| **Python** | 3.10 |
 | **CUDA** | 12.6 |
 | **PyTorch** | 2.9.0+cu126 |
 | **Torchvision** | 0.24.0+cu126 |
