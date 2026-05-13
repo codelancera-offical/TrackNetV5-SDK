@@ -6,6 +6,7 @@ import argparse
 import os
 import math # 确保 math 被导入
 import csv
+import json
 from pathlib import Path
 from tqdm import tqdm
 from collections import deque
@@ -40,35 +41,79 @@ MODEL_CONFIGS = {
 }
 
 # --- 2. 辅助函数 (✨ 已修改，与你的 Metric 脚本对齐) ---
-def _heatmap_to_coords(heatmap: np.ndarray, threshold: int = 127):
+def _heatmap_to_points(
+    heatmap: np.ndarray,
+    threshold: int = 127,
+    min_area: float = 1.0,
+    max_points: int | None = None,
+):
+    """
+    将单张 uint8 热力图转换为多个候选坐标点。
+    """
     if heatmap.dtype != np.uint8:
         heatmap = heatmap.astype(np.uint8)
 
     _, binary_map = cv2.threshold(heatmap, threshold, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(binary_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    if contours:
-        largest_contour = max(contours, key=cv2.contourArea)
-        M = cv2.moments(largest_contour)
+    points = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area < min_area:
+            continue
+
+        M = cv2.moments(cnt)
         if M["m00"] > 0:
             cx = int(M["m10"] / M["m00"])
             cy = int(M["m01"] / M["m00"])
-            
-            # --- ✨ 新增：提取置信度 ---
-            # 创建一个掩码，只关注最大轮廓内的区域
-            mask = np.zeros(heatmap.shape, dtype=np.uint8)
-            cv2.drawContours(mask, [largest_contour], -1, 255, -1)
-            
-            # 在原始热力图中找到该区域内的最大值
-            # minMaxLoc 会返回 (minVal, maxVal, minLoc, maxLoc)
-            _, max_val, _, _ = cv2.minMaxLoc(heatmap, mask=mask)
-            
-            # 将 0-255 归一化到 0-1 之间作为 conf
-            conf = round(max_val / 255.0, 4)
-            
-            return cx, cy, conf
 
-    return None
+            # 创建一个掩码，只关注当前轮廓内的区域
+            mask = np.zeros(heatmap.shape, dtype=np.uint8)
+            cv2.drawContours(mask, [cnt], -1, 255, -1)
+
+            # 在原始热力图中找到该区域内的最大值作为置信度
+            _, max_val, _, _ = cv2.minMaxLoc(heatmap, mask=mask)
+            conf = round(max_val / 255.0, 4)
+
+            points.append({
+                "x": cx,
+                "y": cy,
+                "conf": conf,
+                "area": area
+            })
+
+    # 按 conf 从高到低排序
+    points.sort(key=lambda p: p['conf'], reverse=True)
+
+    # 支持 max_points 截断
+    if max_points is not None and max_points > 0:
+        points = points[:max_points]
+
+    return points
+
+def draw_candidate_points(frame, points):
+    """
+    在帧上画出所有候选点。
+    - conf 最高的点用红色实心圆；
+    - 其他点用黄色圆；
+    - 在点旁边标注 index 和 conf。
+    """
+    for i, pt in enumerate(points):
+        x, y = int(pt['x']), int(pt['y'])
+        conf = pt['conf']
+        
+        if i == 0:
+            # 最高置信度点：红色实心
+            cv2.circle(frame, (x, y), 5, (0, 0, 255), -1)
+        else:
+            # 其他候选点：黄色空心
+            cv2.circle(frame, (x, y), 5, (0, 255, 255), 2)
+        
+        # 标注 index 和 conf
+        label = f"{i}:{conf:.2f}"
+        cv2.putText(frame, label, (x + 8, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+    
+    return frame
 
 def draw_comet_tail(frame, points_deque, head_radius=8):
     """
@@ -214,24 +259,41 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path) 
             single_heatmap_np = heatmaps_np[i] # 形状 (H, W)
             heatmap_uint8 = (single_heatmap_np * 255).astype(np.uint8)
 
-            # (A) 提取坐标 (✨ 已修改：简化调用)
-            coords = _heatmap_to_coords(
-                heatmap_uint8, 
-                threshold=threshold_uint8
+            # (A) 提取坐标 (✨ 已修改：支持多点输出)
+            points = _heatmap_to_points(
+                heatmap_uint8,
+                threshold=threshold_uint8,
+                min_area=args.min_area,
+                max_points=args.max_points
             )
             
             # (B) 记录 CSV 和轨迹
-            if coords is not None:
+            if points:
                 detected_frames_count += 1
-                trajectory_points.append(coords)
-                csv_row = {'frame_number': current_frame_idx, 'detected': 1, 'x': coords[0], 'y': coords[1]}
+                # 取 points[0] 作为主点加入 trajectory_points
+                main_point = points[0]
+                trajectory_points.append((main_point['x'], main_point['y'], main_point['conf']))
+                csv_row = {
+                    'frame_number': current_frame_idx,
+                    'detected': 1,
+                    'num_points': len(points),
+                    'points': json.dumps(points)
+                }
             else:
                 trajectory_points.append(None)
-                csv_row = {'frame_number': current_frame_idx, 'detected': 0, 'x': 0.0, 'y': 0.0}
+                csv_row = {
+                    'frame_number': current_frame_idx,
+                    'detected': 0,
+                    'num_points': 0,
+                    'points': "[]"
+                }
             csv_data.append(csv_row)
             
             # (C) 绘制和写入视频
             frame_to_draw = cv2.cvtColor(resized_frames[i], cv2.COLOR_RGB2BGR)
+            
+            # 绘制所有候选点
+            frame_to_draw = draw_candidate_points(frame_to_draw, points)
             
             # 绘制轨迹视频
             final_traj_frame = draw_comet_tail(frame_to_draw, trajectory_points)
@@ -258,7 +320,7 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path) 
 
     detection_ratio = (detected_frames_count / total_frames) if total_frames > 0 else 0
     with open(csv_path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['frame_number', 'detected', 'x', 'y'])
+        writer = csv.DictWriter(f, fieldnames=['frame_number', 'detected', 'num_points', 'points'])
         writer.writeheader()
         writer.writerows(csv_data)
         f.write("\n")
@@ -299,10 +361,14 @@ def main():
     
     # ✨ 唯一可调的后处理参数 ✨
     parser.add_argument('--threshold', type=float, default=0.5, help='Confidence threshold for detection (0-1).')
+    parser.add_argument('--min-area', type=float, default=1.0, help='Minimum area to filter small candidate regions.')
+    parser.add_argument('--max-points', type=int, default=10, help='Maximum number of candidate points to output per heatmap (<=0 for unlimited).')
 
-    # ✨✨✨ 已删除 --min-circularity 和 --min-area ✨✨✨
-    
     args = parser.parse_args()
+
+    # 兼容处理 max_points
+    if args.max_points <= 0:
+        args.max_points = None
 
     # ✨ 动态获取模型配置
     model_cfg = MODEL_CONFIGS.get(args.arch)

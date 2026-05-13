@@ -101,7 +101,7 @@ The inference module supports batch video processing and structured data export.
 ### Execution Command
 
 ```bash
-python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
+python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --min-area 1.0 --max-points 10 --device cuda:0
 
 ```
 
@@ -110,8 +110,8 @@ python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --dev
 Results are organized under `input_dir/{arch}/` by video filename:
 
 * `_summary_report_{arch}.csv`: Summary of detection rates and frame statistics for all processed videos.
-* `*_data.csv`: Frame-by-frame coordinate mapping (including detection status and `cx`, `cy` centroids).
-* `*_trajectory.mp4`: **Enhanced trajectory video** (featuring a "comet tail" effect).
+* `*_data.csv`: Frame-by-frame coordinate mapping (including detection status, `num_points`, and `points` list in JSON format).
+* `*_trajectory.mp4`: **Enhanced trajectory video** (featuring a "comet tail" effect and all candidate points visualization).
 * `*_comparison.mp4`: Synchronized side-by-side comparison of the original video and predicted heatmaps.
 
 ---

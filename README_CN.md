@@ -96,7 +96,7 @@ python train.py
 ### 执行命令
 
 ```bash
-python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --device cuda:0
+python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --min-area 1.0 --max-points 10 --device cuda:0
 
 ```
 
@@ -105,8 +105,8 @@ python track.py <input_dir> <weights_path> --arch v2/v4/v5 --threshold 0.5 --dev
 结果将自动整理至 `input_dir/{arch}/` 目录下：
 
 * `_summary_report_{arch}.csv`: 汇总所有视频的检测率与帧数统计。
-* `*_data.csv`: 逐帧坐标映射（含检测状态、cx, cy 质心）。
-* `*_trajectory.mp4`: **轨迹增强视频**（含彗星拖尾效果）。
+* `*_data.csv`: 逐帧坐标映射（含检测状态、`num_points` 候选点数量、`points` 候选点列表 [JSON格式]）。
+* `*_trajectory.mp4`: **轨迹增强视频**（含彗星拖尾效果及所有候选点可视化）。
 * `*_comparison.mp4`: 原始轨迹与预测热力图的同步对比视频。
 
 ---
